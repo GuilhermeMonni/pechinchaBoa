@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "axios": "^1.13.6",
+    "fastify": "^5.7.4",
+    "node": "^25.7.0"
+  },
+  "name": "pechincha",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

@@ -1,6 +1,6 @@
 import fastify from 'fastify'
+import pino from 'pino'
 
-const pino = require('pino')
 const logger = pino()
 const server = fastify({ logger:true })
 

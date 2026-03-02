@@ -12,7 +12,7 @@ server.get('/auth', (req, res) => {
 
   const url = `https://auth.mercadolivre.com.br/authorization?response_type=code`
     + `&client_id=${process.env.APP_ID}`
-    + `&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}`
+    + `&redirect_uri=${encodeURIComponent(process.env.URI)}`
     + `&code_challenge=${codeChallenge}`
     + `&code_challenge_method=S256`;
 
@@ -29,9 +29,9 @@ server.get('/', async (req, res) => {
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: process.env.APP_ID,
-      client_secret: process.env.CLIENT_SECRET,
+      client_secret: process.env.KEY,
       code,
-      redirect_uri: process.env.REDIRECT_URI,
+      redirect_uri: process.env.URI,
       code_verifier: codeVerifier
     })
   });

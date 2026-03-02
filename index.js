@@ -1,9 +1,12 @@
 import crypto from 'crypto'
+import fastify from 'fastify';
+
+const server = fastify()
 
 let codeVerifier;
 
 //gera a URL e redireciona
-app.get('/auth', (req, res) => {
+server.get('/auth', (req, res) => {
   codeVerifier = crypto.randomBytes(32).toString('base64url');
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
 
@@ -17,7 +20,7 @@ app.get('/auth', (req, res) => {
 });
 
 // callback 
-app.get('/', async (req, res) => {
+server.get('/', async (req, res) => {
   const { code } = req.query;
 
   const response = await fetch('https://api.mercadolibre.com/oauth/token', {

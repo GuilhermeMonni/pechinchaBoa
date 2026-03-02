@@ -45,7 +45,7 @@ server.get('/', async (request, reply) => {
 
 server.get('/test', (request, reply) => {
     reply.message('Server online.')
-    return logger.info('Server online...')
+    return logger.info('Server online!')
 })
 
 server.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });

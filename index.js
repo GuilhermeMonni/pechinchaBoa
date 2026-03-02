@@ -1,14 +1,16 @@
 import crypto from 'crypto'
-import fastify from 'fastify';
+import fastify from 'fastify'
 
 const server = fastify()
 
-let codeVerifier;
+let codeVerifier
 
-//gera a URL e redireciona
-server.get('/auth', (req, res) => {
+server.get('/auth', (request, reply) => {
   codeVerifier = crypto.randomBytes(32).toString('base64url');
-  const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64url')
 
   const url = `https://auth.mercadolivre.com.br/authorization?response_type=code`
     + `&client_id=${process.env.APP_ID}`
@@ -16,12 +18,11 @@ server.get('/auth', (req, res) => {
     + `&code_challenge=${codeChallenge}`
     + `&code_challenge_method=S256`;
 
-  res.redirect(url);
+  reply.redirect(url);
 });
 
-// callback 
-server.get('/', async (req, res) => {
-  const { code } = req.query;
+server.get('/', async (request, reply) => {
+  const { code } = request.query;
 
   const response = await fetch('https://api.mercadolibre.com/oauth/token', {
     method: 'POST',
@@ -37,5 +38,7 @@ server.get('/', async (req, res) => {
   });
 
   const data = await response.json();
-  res.json(data);
+  reply.send(data);
 });
+
+server.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });

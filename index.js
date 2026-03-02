@@ -1,33 +1,24 @@
-import fastify from 'fastify'
-import pino from 'pino'
 import crypto from 'crypto'
 
-const logger = pino()
-const server = fastify({ logger: true })
+let codeVerifier;
 
-// Guarda o verifier em memória (gerado uma vez)
-let codeVerifier = ''
+//gera a URL e redireciona
+app.get('/auth', (req, res) => {
+  codeVerifier = crypto.randomBytes(32).toString('base64url');
+  const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
 
-// Rota pra gerar a URL de autenticação
-server.get('/auth', (req, res) => {
-  codeVerifier = crypto.randomBytes(32).toString('base64url')
-  const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url')
-
-  const url = `https://auth.mercadolivre.com.br/authorization`
-    + `?response_type=code`
+  const url = `https://auth.mercadolivre.com.br/authorization?response_type=code`
     + `&client_id=${process.env.APP_ID}`
-    + `&redirect_uri=${encodeURIComponent(process.env.URI)}`
+    + `&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}`
     + `&code_challenge=${codeChallenge}`
-    + `&code_challenge_method=S256`
+    + `&code_challenge_method=S256`;
 
-  return { url }
-})
+  res.redirect(url);
+});
 
-// Rota de callback — ML redireciona aqui com o code
-server.get('/', async (req, res) => {
-  const { code } = req.query
-
-  if (!code) return { error: 'Sem código' }
+// callback 
+app.get('/', async (req, res) => {
+  const { code } = req.query;
 
   const response = await fetch('https://api.mercadolibre.com/oauth/token', {
     method: 'POST',
@@ -35,25 +26,13 @@ server.get('/', async (req, res) => {
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: process.env.APP_ID,
-      client_secret: process.env.KEY,
+      client_secret: process.env.CLIENT_SECRET,
       code,
-      redirect_uri: process.env.URI,
-      code_verifier: codeVerifier,
+      redirect_uri: process.env.REDIRECT_URI,
+      code_verifier: codeVerifier
     })
-  })
+  });
 
-  const data = await response.json()
-  logger.info(data)
-  return data
-})
-
-server.get('/test', () => {
-  return { message: 'Servidor on.' }
-})
-
-server.listen({ port: 8000, host: '0.0.0.0' }, (err) => {
-  if (err) {
-    logger.error(err)
-    process.exit(1)
-  }
-})
+  const data = await response.json();
+  res.json(data);
+});

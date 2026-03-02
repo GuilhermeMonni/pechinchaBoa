@@ -1,7 +1,9 @@
 import crypto from 'crypto'
 import fastify from 'fastify'
+import pino from 'pino' 
 
 const server = fastify()
+const logger = pino()
 
 let codeVerifier
 
@@ -39,6 +41,11 @@ server.get('/', async (request, reply) => {
 
   const data = await response.json();
   reply.send(data);
-});
+})
+
+server.get('/test', (request, reply) => {
+    reply.message('Server online.')
+    return logger.info('Server online...')
+})
 
 server.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });

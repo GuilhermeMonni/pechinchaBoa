@@ -4,6 +4,7 @@ import fastify from 'fastify'
 const server = fastify()
 const verifiers = new Map()
 
+//state and code verifier acess token
 server.get('/auth', (request, reply) => {
   const codeVerifier = crypto.randomBytes(32).toString('base64url')
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url')
@@ -18,6 +19,7 @@ server.get('/auth', (request, reply) => {
     + `&code_challenge=${codeChallenge}`
     + `&code_challenge_method=S256`
     + `&state=${state}`
+    + `&scope=offline_access read write`
 
   reply.redirect(url)
 })

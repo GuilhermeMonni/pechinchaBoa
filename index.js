@@ -62,7 +62,7 @@ server.get("/", async (request, reply) => {
   const data = await response.json();
 
   const tokens ={
-    token: data.acess_token,
+    token: data.access_token,
     refreshToken: data.refresh_token
   }
   fs.writeFileSync('./tokens.json', JSON.stringify(tokens, null, 2))

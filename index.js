@@ -58,8 +58,17 @@ server.get("/", async (request, reply) => {
   });
 
   fs.unlinkSync('./codes.json') 
+  logger.info("Tokens created.")
   const data = await response.json();
-  reply.send(data);
+
+  const tokens ={
+    token: data.acess_token,
+    refreshToken: data.refresh_token
+  }
+  fs.writeFileSync('./tokens.json', JSON.stringify(tokens, null, 2))
+  const tokenObj = JSON.parse(fs.readFileSync('./tokens.json', 'utf-8'))
+
+  logger.info(tokenObj)
 });
 
 server.listen({ port: 3000, host: "0.0.0.0" });

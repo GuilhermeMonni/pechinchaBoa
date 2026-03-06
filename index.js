@@ -61,14 +61,19 @@ server.get("/", async (request, reply) => {
   logger.info("Tokens created.")
   const data = await response.json();
 
-  const tokens ={
-    token: data.access_token,
-    refreshToken: data.refresh_token
+  if (data.access_token) {
+    logger.info("Token successfully generated!")
+    const tokens ={
+      token: data.access_token,
+      refreshToken: data.refresh_token
+    }
+    fs.writeFileSync('./tokens.json', JSON.stringify(tokens, null, 2))
+  } else {
+    logger.error("Error generating token")
+    logger.error(data) 
   }
-  fs.writeFileSync('./tokens.json', JSON.stringify(tokens, null, 2))
-  const tokenObj = JSON.parse(fs.readFileSync('./tokens.json', 'utf-8'))
 
-  logger.info(tokenObj)
+  //const tokenObj = JSON.parse(fs.readFileSync('./tokens.json', 'utf-8'))
 });
 
 server.listen({ port: 3000, host: "0.0.0.0" });

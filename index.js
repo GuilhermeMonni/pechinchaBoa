@@ -85,10 +85,7 @@ server.get("/setWebhook", async (req, reply) => {
 bot.on(message("text"), async (ctx) => {
   try {
     const text = ctx.message.text.trim();
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-
-    // expects two links
-    if (lines.length !== 2) return;
+    const lines = text.split(",").map(l => l.trim()).filter(Boolean);
 
     const [productUrl, affiliateLink] = lines;
 

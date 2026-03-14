@@ -85,29 +85,38 @@ server.get("/setWebhook", async (req, reply) => {
 bot.on(message("text"), async (ctx) => {
   try {
     const text = ctx.message.text.trim();
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+    // expects two links
+    if (lines.length !== 2) return;
+
+    const [productUrl, affiliateLink] = lines;
+
+    if (!productUrl.includes("mercadolivre.com.br")) return;
 
     await ctx.reply("🔍 Buscando produto...");
 
-    const product = await getProductFromUrl(text);
+    const product = await getProductFromUrl(productUrl);
     if (!product?.title || !product?.price) {
-      logger.info("bot didn’t find the product.")
       return ctx.reply("Não consegui buscar o produto. Tente novamente.");
     }
 
-    const hasDiscount =
-      product.original_price && product.original_price > product.price;
+    const hasDiscount = product.original_price && product.original_price > product.price;
+
+    // format price with two decimal places
+    const formatPrice = (value) => value.toFixed(2).replace(".", ",")
 
     const msg =
       `🚀 <b>${product.title}</b>\n\n` +
       (hasDiscount
-        ? `💰 De <s>R$ ${product.original_price.toLocaleString("pt-BR")}</s> por apenas <b>R$ ${product.price.toLocaleString("pt-BR")}</b>`
-        : `💰 <b>R$ ${product.price.toLocaleString("pt-BR")}</b>`) +
-      `\n\n🔗`;
+        ? `💰 De <s>R$ ${formatPrice(product.original_price)}</s> por apenas <b>R$ ${formatPrice(product.price)}</b>`
+        : `💰 <b>R$ ${formatPrice(product.price)}</b>`) +
+      `\n\n🔗 ${affiliateLink}`;
 
     ctx.reply(msg, { parse_mode: "HTML" });
+
   } catch (err) {
     console.error("Bot error:", err);
-    logger.info("Error while processing the link.")
     ctx.reply("Ocorreu um erro ao processar o link.");
   }
 });

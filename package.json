@@ -13,10 +13,8 @@
   "dependencies": {
     "@eomm/fastify-telegram": "^1.1.0",
     "axios": "^1.13.6",
-    "crypto": "^1.0.1",
     "dotenv": "^16.6.1",
     "fastify": "^5.8.1",
-    "fs": "^0.0.1-security",
     "install": "^0.13.0",
     "node-cron": "^3.0.3",
     "pino": "^10.3.1",

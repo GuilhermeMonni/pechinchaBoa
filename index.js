@@ -1,195 +1,115 @@
-import 'dotenv/config'
-import crypto from "crypto";
+import "dotenv/config";
 import fastify from "fastify";
 import pino from "pino";
-import fs from "fs";
-import { Telegraf } from 'telegraf';
-import { message } from 'telegraf/filters';
+import { Telegraf } from "telegraf";
+import { message } from "telegraf/filters";
 
 const server = fastify();
 const logger = pino();
-const FIVE_HOURS = 5 * 60 * 60 * 1000
+const bot = new Telegraf(process.env.TOKEN_BOT);
 
-const tokenBot = process.env.TOKEN_BOT 
-const bot = new Telegraf(tokenBot) //bot telegram
-
-server.get("/test", (request, reply) => {
-  reply.send("Server online!")
-});
-
-//state and code verifier meli
-server.get("/auth", (request, reply) => {
-  const codeVerifier = crypto.randomBytes(32).toString("base64url");
-  const codeChallenge = crypto
-    .createHash("sha256")
-    .update(codeVerifier)
-    .digest("base64url");
-  const state = crypto.randomBytes(16).toString("base64url");
-
-  const codes = {
-    state: state,
-    codeVerifier: codeVerifier,
-  };
-  fs.writeFileSync("./codes.json", JSON.stringify(codes, null, 2));
-
-  const url =
-    `https://auth.mercadolivre.com.br/authorization?response_type=code` +
-    `&client_id=${process.env.APP_ID}` +
-    `&redirect_uri=${encodeURIComponent(process.env.URI)}` +
-    `&code_challenge=${codeChallenge}` +
-    `&code_challenge_method=S256` +
-    `&state=${state}`;
-
-  reply.redirect(url);
-  logger.info("Code verifier and state ok!");
-  console.log("codes.json created.");
-});
-
-//acess token meli and refresh code
-server.get("/", async (request, reply) => {
-  const { code, state } = request.query;
-
-  //validation state e codeverifier
-  if (!fs.existsSync('./codes.json')) {
-    return reply.status(400).send({ error: "codeVerifier não encontrado" });
-  }
-  
-  const codesJSON = JSON.parse(fs.readFileSync("./codes.json", "utf-8"));
-
-  const response = await fetch("https://api.mercadolibre.com/oauth/token", {
-    method: "POST",
-    headers: { 
-      "accept": "application/json",
-      "Content-Type": "application/x-www-form-urlencoded" 
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: process.env.APP_ID,
-      client_secret: process.env.KEY,
-      code,
-      redirect_uri: process.env.URI,
-      code_verifier: codesJSON.codeVerifier,
-    }),
-  });
-
-  fs.unlinkSync("./codes.json");
-  const data = await response.json();
-
-  const tokens = {
-    token: data.access_token,
-    refreshToken: data.refresh_token,
-  };
-  fs.writeFileSync("./tokens.json", JSON.stringify(tokens, null, 2));
-
-  if (!data.access_token) {
-    logger.error("Error generating token");
-    return console.error(data);
-  }
-
-  logger.info("Token successfully generated!");
-  reply.send({ message: "Token successfully generated!" })
-});
-
-//get product meli
-async function getProduct(itemId) {
-  const url = `https://api.mercadolibre.com/items/${itemId}`;
-  const { token } = JSON.parse(fs.readFileSync("./tokens.json", "utf-8"))
-
+// get product data from ML page
+async function getProductFromUrl(url) {
   try {
-    const resp = await fetch(url, {
-      method: "GET",
+    const res = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9",
       },
     });
-    return await resp.json();
-  } catch (error) {
-    console.error("Erro ao buscar ML:", error);
+
+    const html = await res.text();
+
+    // title
+    const titleMatch = html.match(
+      /<h1[^>]*class="[^"]*ui-pdp-title[^"]*"[^>]*>(.*?)<\/h1>/s,
+    );
+    const title = titleMatch?.[1]?.trim() ?? null;
+
+    // current price
+    const pricePatterns = [
+      /"price":(\d+\.?\d*)/,
+      /"amount":(\d+)/,
+      /itemprop="price" content="(\d+\.?\d*)"/,
+      /"price_amount":(\d+\.?\d*)/,
+      /"salePriceAmount":(\d+)/,
+    ];
+
+    let price = null;
+    for (const pattern of pricePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        price = parseFloat(match[1]);
+        break;
+      }
+    }
+
+    // original price (before discount)
+    const originalPriceMatch = html.match(/"original_price":(\d+\.?\d*)/);
+    const original_price = originalPriceMatch
+      ? parseFloat(originalPriceMatch[1])
+      : null;
+
+    console.log(
+      "title:",
+      title,
+      "| price:",
+      price,
+      "| original_price:",
+      original_price,
+    );
+
+    return { title, price, original_price };
+  } catch (err) {
+    console.error("Scraping error:", err);
+    logger.info("Scraping error")
     return null;
   }
 }
 
-//bot read and return message
-bot.on(message("text"), async (ctx) => {
-  const text = ctx.message.text.trim();
-  const chatId = ctx.chat.id;
-
-  //validation meli
-  if (!text.includes("meli.la")) return;
-
-  //get id 
-  const itemMatches = text.match(/MLB\d{9}/);
-  const itemId = itemMatches ? itemMatches[0] : null;
-  if (!itemId) {
-    return ctx.reply("Não consegui identificar o ID do produto.");
-  }
-
-  //search product
-  const product = await getProduct(itemId);
-  if (!product) {
-    return ctx.reply("Não consegui buscar o produto no Mercado Livre.");
-  }
-
-  //discount verify
-  const hasDiscount = product.original_price && product.original_price > product.price
-
-  //text announcement
-  const msg = `
-🚀 <b>${product.title}</b>
-
-  ${hasDiscount 
-    ? `💰 De <s>R$ ${product.original_price.toLocaleString("pt-BR")}</s> por apenas <b>R$ ${product.price.toLocaleString("pt-BR")}</b>` 
-    : `💰 <b>R$ ${product.price.toLocaleString("pt-BR")}</b>`
-  }
-
-  🔗 ${product.permalink}?matt_tool=${process.env.ID_MELI}`
-  
-  ctx.reply(msg, { parse_mode: "HTML" });
+server.post("/telegram-webhook", async (req, reply) => {
+  await bot.handleUpdate(req.body);
+  reply.send({ ok: true });
 });
 
-//route for bot on
-server.post('/telegram-webhook', async (request, reply) => {
-  await bot.handleUpdate(request.body)
-  reply.send ({ ok: true })
-})
+server.get("/setWebhook", async (req, reply) => {
+  await bot.telegram.setWebhook(`${process.env.URI}/telegram-webhook`);
+  logger.info("Webhook configured!")
+  reply.send("Webhook configured!");
+});
 
-//config webhook
-server.get('/setWebhook', async (request, reply) => {
-  const webhookUrl = `${process.env.URI}/telegram-webhook`
-  await bot.telegram.setWebhook(webhookUrl)
-  return reply.status(200).send('Webhook configured!')
-})
+// bot
+bot.on(message("text"), async (ctx) => {
+  try {
+    const text = ctx.message.text.trim();
+
+    await ctx.reply("🔍 Buscando produto...");
+
+    const product = await getProductFromUrl(text);
+    if (!product?.title || !product?.price) {
+      logger.info("bot didn’t find the product.")
+      return ctx.reply("Não consegui buscar o produto. Tente novamente.");
+    }
+
+    const hasDiscount =
+      product.original_price && product.original_price > product.price;
+
+    const msg =
+      `🚀 <b>${product.title}</b>\n\n` +
+      (hasDiscount
+        ? `💰 De <s>R$ ${product.original_price.toLocaleString("pt-BR")}</s> por apenas <b>R$ ${product.price.toLocaleString("pt-BR")}</b>`
+        : `💰 <b>R$ ${product.price.toLocaleString("pt-BR")}</b>`) +
+      `\n\n🔗`;
+
+    ctx.reply(msg, { parse_mode: "HTML" });
+  } catch (err) {
+    console.error("Bot error:", err);
+    logger.info("Error while processing the link.")
+    ctx.reply("Ocorreu um erro ao processar o link.");
+  }
+});
 
 server.listen({ port: 3000, host: "0.0.0.0" });
-
-//refresh token
-setInterval(async () => {
-  if (!fs.existsSync("./tokens.json")) return
-
-  const tokens = JSON.parse(fs.readFileSync("./tokens.json", "utf-8"))
-
-  const response = await fetch("https://api.mercadolibre.com/oauth/token", {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: process.env.APP_ID,
-      client_secret: process.env.KEY,
-      refresh_token: tokens.refreshToken,
-    }),
-  })
-
-  const data = await response.json()
-
-  const updatedTokens = {
-    token: data.access_token,
-    refreshToken: data.refresh_token || tokens.refreshToken,
-  }
-
-  fs.writeFileSync("./tokens.json", JSON.stringify(updatedTokens, null, 2))
-  logger.info("Token atualizado automaticamente!")
-
-}, FIVE_HOURS)

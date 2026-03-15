@@ -106,7 +106,7 @@ bot.on(message("text"), async (ctx) => {
     const msg =
       `🚀 <b>${product.title}</b>\n\n` +
       (hasDiscount
-        ? `💰 De <s>R$ ${formatPrice(product.original_price)}</s> por apenas <b>R$ ${formatPrice(product.price)}</b>`
+        ? `💰 De <s>~R$${formatPrice(product.original_price)}~</s> por apenas <b>*R$${formatPrice(product.price)}*</b>`
         : `💰 <b>R$ ${formatPrice(product.price)}</b>`) +
       `\n\n🔗 ${affiliateLink}`;
 

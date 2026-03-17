@@ -1,4 +1,4 @@
-# Pechincha Boa
+# 🚀 Pechincha Boa
 
 > Bot de ofertas no Telegram que gera anúncios a partir de links de afiliado do Mercado Livre.
 

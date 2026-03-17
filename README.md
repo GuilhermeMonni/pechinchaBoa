@@ -95,7 +95,9 @@ Envie uma mensagem para o bot no formato:
 Caso o bot não responda, verifique:
 
 •	se o servidor está de fato rodando (`node server.js`).
+
 •	se a URL do webhook está correta e acessível.
+
 •	se o token do Telegram está correto.
 
 ---

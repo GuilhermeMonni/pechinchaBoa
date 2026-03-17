@@ -2,7 +2,7 @@
 
 > Bot de ofertas no Telegram que gera anúncios a partir de links de afiliado do Mercado Livre.
 
-O **pechinchaBoa** é um bot pessoal que facilita a criação de anúncios de ofertas a partir de links de afiliado recebidos no Telegram.  
+O **Pechincha Boa** é um bot pessoal que facilita a criação de anúncios de ofertas a partir de links de afiliado recebidos no Telegram.  
 
 ---
 

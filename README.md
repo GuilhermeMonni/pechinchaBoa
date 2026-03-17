@@ -54,17 +54,20 @@ O **Pechincha Boa** é um bot pessoal que facilita a criação de anúncios de o
    cd pechinchaBoa
   
 2. **Instale as dependências**
+
 Certifique-se de ter o Node.js instalado em seu sistema e depois execute:
 
    npm install
 
 3. **Configure o arquivo .env**
+
 Na raiz do projeto, crie um arquivo chamado `.env` com o seguinte conteúdo:
 
    TELEGRAM_TOKEN=123456789:AAHb123456789abcdef123456789
    WEBHOOK_URL=https://seu-tunnel.ngrok.io
 
 •	`TELEGRAM_TOKEN`: token do seu bot, fornecido pelo `@BotFather` no Telegram.
+
 •	`WEBHOOK_URL`: URL pública do seu servidor local (pode ser gerada usando ngrok ou outra ferramenta similar, por exemplo `https://seu-tunnel.ngrok.io`). Essa URL é usada para o Telegram enviar as atualizações (mensagens) para o seu bot em localhost.
 
 4. **Inicie o servidor local**
@@ -74,21 +77,25 @@ Na raiz do projeto, crie um arquivo chamado `.env` com o seguinte conteúdo:
 Isso irá iniciar o servidor Fastify na sua máquina e expor o endpoint para receber atualizações do Telegram via webhook.
 
 5. **Configure o webhook no telegram**
+
 No seu navegador acesse: 
 
    http://localhost:3000/setWebhook
 
 6. **Teste o bot no telegram**
+
 Envie uma mensagem para o bot no formato:
 
    URL_PRINCIPAL , URL_AFILIADO
 
 •	`URL_PRINCIPAL`: link direto do produto.
+
 •	`URL_AFILIADO`: link de afiliado (pode ser o mesmo que `URL_PRINCIPAL` se você não for afiliado ou quiser apenas testar).
 
 Caso o bot não responda, verifique:
-•	se o servidor está de fato rodando (`node server.js`),
-•	se a URL do webhook está correta e acessível,
+
+•	se o servidor está de fato rodando (`node server.js`).
+•	se a URL do webhook está correta e acessível.
 •	se o token do Telegram está correto.
 
 ---

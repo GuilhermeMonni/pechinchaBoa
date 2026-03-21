@@ -8,67 +8,91 @@ const server = fastify();
 const logger = pino();
 const bot = new Telegraf(process.env.TOKEN_BOT);
 
-// get product data from ML page
 async function getProductFromUrl(url) {
   try {
     const res = await fetch(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pt-BR,pt;q=0.9",
+        Connection: "keep-alive",
       },
     });
 
     const html = await res.text();
+    console.log("Status:", res.status, "| URL:", url);
 
-    // title
-    const titleMatch = html.match(
-      /<h1[^>]*class="[^"]*ui-pdp-title[^"]*"[^>]*>(.*?)<\/h1>/s,
-    );
-    const title = titleMatch?.[1]?.trim() ?? null;
+    if (url.includes("mercadolivre")) {
+      const titleMatch = html.match(
+        /<h1[^>]*class="[^"]*ui-pdp-title[^"]*"[^>]*>(.*?)<\/h1>/s,
+      );
+      const title = titleMatch?.[1]?.trim() ?? null;
 
-    // current price
-    const pricePatterns = [
-      /"price":(\d+\.?\d*)/,
-      /"amount":(\d+)/,
-      /itemprop="price" content="(\d+\.?\d*)"/,
-      /"price_amount":(\d+\.?\d*)/,
-      /"salePriceAmount":(\d+)/,
-    ];
+      const pricePatterns = [
+        /"price":(\d+\.?\d*)/,
+        /"amount":(\d+)/,
+        /itemprop="price" content="(\d+\.?\d*)"/,
+        /"price_amount":(\d+\.?\d*)/,
+        /"salePriceAmount":(\d+)/,
+      ];
 
-    let price = null;
-    for (const pattern of pricePatterns) {
-      const match = html.match(pattern);
-      if (match) {
-        price = parseFloat(match[1]);
-        break;
+      let price = null;
+      for (const pattern of pricePatterns) {
+        const match = html.match(pattern);
+        if (match) {
+          price = parseFloat(match[1]);
+          break;
+        }
       }
+
+      const originalPriceMatch = html.match(/"original_price":(\d+\.?\d*)/);
+      const original_price = originalPriceMatch
+        ? parseFloat(originalPriceMatch[1])
+        : null;
+
+      console.log(
+        "title:",
+        title,
+        "| price:",
+        price,
+        "| original_price:",
+        original_price,
+      );
+      return { title, price, original_price };
+    } else if (url.includes("shopee")) {
+      //url da shopee solicita login
+      /*const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+
+      const html = res.text()
+      console.log(html);
+
+      const data = await res.json();
+      const item = data?.data;
+
+      const title = item?.name ?? null;
+      const price = item?.price ? item.price / 100000 : null;
+      const original_price = item?.price_before_discount
+        ? item.price_before_discount / 100000
+        : null;
+
+      return { title, price, original_price };
+      */
+      await ctx.reply("Shopee ainda não suportado. Use links do Mercado Livre!")
+      return null
     }
 
-    // original price (before discount)
-    const originalPriceMatch = html.match(/"original_price":(\d+\.?\d*)/);
-    const original_price = originalPriceMatch
-      ? parseFloat(originalPriceMatch[1])
-      : null;
-
-    console.log(
-      "title:",
-      title,
-      "| price:",
-      price,
-      "| original_price:",
-      original_price,
-    );
-
-    return { title, price, original_price };
+    return null;
   } catch (err) {
-    console.error("Scraping error:", err);
-    logger.info("Scraping error")
+    console.error("Scraping error:", err.message);
     return null;
   }
 }
+
+server.get("/test", (req, reply) => reply.send("Server online!"));
 
 server.post("/telegram-webhook", async (req, reply) => {
   await bot.handleUpdate(req.body);
@@ -77,44 +101,54 @@ server.post("/telegram-webhook", async (req, reply) => {
 
 server.get("/setWebhook", async (req, reply) => {
   await bot.telegram.setWebhook(`${process.env.URI}/telegram-webhook`);
-  logger.info("Webhook configured!")
+  logger.info("Webhook configured!");
   reply.send("Webhook configured!");
 });
 
-// bot
 bot.on(message("text"), async (ctx) => {
+  // ignora mensagens sem vírgula
+  if (!ctx.message.text.includes(",")) return;
+
   try {
     const text = ctx.message.text.trim();
-    const lines = text.split(",").map(l => l.trim()).filter(Boolean);
-
+    const lines = text
+      .split(",")
+      .map((l) => l.trim())
+      .filter(Boolean);
     const [productUrl, affiliateLink] = lines;
 
-    if (!productUrl.includes("mercadolivre.com.br")) return;
+    // remove tudo após # da URL
+    const cleanUrl = productUrl.split("#")[0];
+    const linkAffiliate = affiliateLink ? affiliateLink.trim() : cleanUrl;
 
     await ctx.reply("🔍 Buscando produto...");
 
-    const product = await getProductFromUrl(productUrl);
+    const product = await getProductFromUrl(cleanUrl);
+    console.log("product:", product);
+
     if (!product?.title || !product?.price) {
-      return ctx.reply("Não consegui buscar o produto. Tente novamente.");
+      await ctx
+        .reply("Não consegui buscar o produto. Tente novamente.")
+        .catch(() => {});
+      return;
     }
 
-    const hasDiscount = product.original_price && product.original_price > product.price;
-
-    // format price with two decimal places
-    const formatPrice = (value) => value.toFixed(2).replace(".", ",")
+    const hasDiscount =
+      product.original_price && product.original_price > product.price;
+    const formatPrice = (value) => value.toFixed(2).replace(".", ",");
 
     const msg =
       `🚀 <b>${product.title}</b>\n\n` +
       (hasDiscount
-        ? `💰 De <s>~R$${formatPrice(product.original_price)}~</s> por apenas <b>*R$${formatPrice(product.price)}*</b>`
+        ? `💰 De <s>R$ ${formatPrice(product.original_price)}</s> por apenas <b>R$ ${formatPrice(product.price)}</b>`
         : `💰 <b>R$ ${formatPrice(product.price)}</b>`) +
-      `\n\n🔗 ${affiliateLink}`;
+      `\n\n🔗 ${linkAffiliate}`;
 
-    ctx.reply(msg, { parse_mode: "HTML" });
-
+    await ctx.reply(msg, { parse_mode: "HTML" }).catch(() => {});
   } catch (err) {
-    console.error("Bot error:", err);
-    ctx.reply("Ocorreu um erro ao processar o link.");
+    console.error("Erro:", err.message);
+    console.error("Stack:", err.stack);
+    await ctx.reply("Não foi possível achar o produto 😓").catch(() => {});
   }
 });
 

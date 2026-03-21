@@ -61,31 +61,7 @@ async function getProductFromUrl(url) {
         original_price,
       );
       return { title, price, original_price };
-    } else if (url.includes("shopee")) {
-      //url da shopee solicita login
-      /*const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-
-      const html = res.text()
-      console.log(html);
-
-      const data = await res.json();
-      const item = data?.data;
-
-      const title = item?.name ?? null;
-      const price = item?.price ? item.price / 100000 : null;
-      const original_price = item?.price_before_discount
-        ? item.price_before_discount / 100000
-        : null;
-
-      return { title, price, original_price };
-      */
-      await ctx.reply("Shopee ainda não suportado. Use links do Mercado Livre!")
-      return null
-    }
-
-    return null;
+    } 
   } catch (err) {
     console.error("Scraping error:", err.message);
     return null;
@@ -140,7 +116,7 @@ bot.on(message("text"), async (ctx) => {
     const msg =
       `🚀 <b>${product.title}</b>\n\n` +
       (hasDiscount
-        ? `💰 De <s>R$ ${formatPrice(product.original_price)}</s> por apenas <b>R$ ${formatPrice(product.price)}</b>`
+        ? `💰 De <s>~R$${formatPrice(product.original_price)}~</s> por apenas <b>*R$${formatPrice(product.price)}*</b>`
         : `💰 <b>R$ ${formatPrice(product.price)}</b>`) +
       `\n\n🔗 ${linkAffiliate}`;
 
